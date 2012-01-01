@@ -2399,6 +2399,7 @@ VT100.prototype.hideSoftKeyboard = function() {
 
 VT100.prototype.toggleCursorBlinking = function() {
   this.blinkingCursor = !this.blinkingCursor;
+  this.animateCursor('bright');
 };
 
 VT100.prototype.about = function() {
@@ -2879,6 +2880,10 @@ VT100.prototype.keyDown = function(event) {
   //             (event.shiftKey ? 'S' : '') + (event.ctrlKey ? 'C' : '') +
   //             (event.altKey ? 'A' : '') + (event.metaKey ? 'M' : '') : '') +
   //            '\r\n');
+
+  // Keep the cursor lit when there is user activity.
+  this.animateCursor('bright');
+
   this.checkComposedKeys(event);
   this.lastKeyPressedEvent      = undefined;
   this.lastKeyDownEvent         = undefined;
@@ -2971,6 +2976,10 @@ VT100.prototype.keyPressed = function(event) {
   //             (event.shiftKey ? 'S' : '') + (event.ctrlKey ? 'C' : '') +
   //             (event.altKey ? 'A' : '') + (event.metaKey ? 'M' : '') : '') +
   //            '\r\n');
+
+  // Keep the cursor lit when there is user activity.
+  this.animateCursor('bright');
+
   if (this.lastKeyDownEvent) {
     // If we already processed the key on keydown, do not process it
     // again here. Ideally, the browser should not even have generated a
@@ -3007,6 +3016,10 @@ VT100.prototype.keyUp = function(event) {
   //             (event.shiftKey ? 'S' : '') + (event.ctrlKey ? 'C' : '') +
   //             (event.altKey ? 'A' : '') + (event.metaKey ? 'M' : '') : '') +
   //            '\r\n');
+
+  // Keep the cursor lit when there is user activity.
+  this.animateCursor('bright');
+
   if (this.lastKeyPressedEvent) {
     // The compose key on Linux occasionally confuses the browser and keeps
     // inserting bogus characters into the input field, even if just a regular
@@ -3072,7 +3085,25 @@ VT100.prototype.keyUp = function(event) {
   return false;
 };
 
-VT100.prototype.animateCursor = function(inactive) {
+VT100.prototype.animateCursor = function(state) {
+  if (state != undefined) {
+    this.cursor.className = state;
+
+    // Reset the blink timer when a state is explicitly defined.
+    if (this.cursorInterval) {
+      clearInterval(this.cursorInterval);
+      this.cursorInterval = undefined;
+    }
+  } else {
+    if (this.cursor.className != 'inactive') {
+      if (this.blinkingCursor && this.cursor.className == 'bright') {
+        this.cursor.className = 'dim';
+      } else {
+        this.cursor.className = 'bright';
+      }
+    }
+  }
+
   if (!this.cursorInterval) {
     this.cursorInterval       = setInterval(
       function(vt100) {
@@ -3085,26 +3116,14 @@ VT100.prototype.animateCursor = function(inactive) {
         }
       }(this), 500);
   }
-  if (inactive != undefined || this.cursor.className != 'inactive') {
-    if (inactive) {
-      this.cursor.className   = 'inactive';
-    } else {
-      if (this.blinkingCursor) {
-        this.cursor.className = this.cursor.className == 'bright'
-                                ? 'dim' : 'bright';
-      } else {
-        this.cursor.className = 'bright';
-      }
-    }
-  }
 };
 
 VT100.prototype.blurCursor = function() {
-  this.animateCursor(true);
+  this.animateCursor('inactive');
 };
 
 VT100.prototype.focusCursor = function() {
-  this.animateCursor(false);
+  this.animateCursor('bright');
 };
 
 VT100.prototype.flashScreen = function() {
